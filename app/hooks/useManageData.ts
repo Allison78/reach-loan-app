@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { evaluateApplication } from '../helpers';
@@ -7,71 +7,64 @@ import { ApplicantForm, ApplicationInfo } from '../types';
 import { useMyContext } from '../contexts/ApplicantContext';
 
 export const useManageData = () => {
-  const { applicants, setApplicants } = useMyContext();
-  const [dataLoading, setDataLoading] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const {
+    applicants,
+    setApplicants,
+    submitLoading,
+    setSubmitLoading,
+   } = useMyContext();
   const router = useRouter();
 
-  async function fetchApplicant(id: string) {
+  const fetchApplicant = useCallback(async (id: string) => {
+    if (!applicants) return;
     return applicants.find((a: ApplicationInfo) => a.id === id) || emptyApplication;
-  }
-  
-  async function fetchApplicants() {
-    setDataLoading(true);
+  }, [applicants]);
+
+  const fetchApplicants = useCallback(async () => {
     try {
-      const readSingle = await fetch(
-        'https://edge-config.vercel.com/ecfg_julblvfonndqsb4moq9tzmaemhu5/item/loanApplicants?token=d4265a2a-dc26-4e68-9f6b-a0a54833755d',
-        );
-        const result = await readSingle.json();
-        if (!result) throw new Error("Network Error");
-        setApplicants(result);
-      } catch (error) {
-        return [];
+      const response = await fetch('/api/applicants');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch applicants');
+      }
+
+      const result = await response.json();
+      setApplicants(result);
+    } catch (error) {
+      console.error('Error fetching applicants:', error);
+      setApplicants([]);
     }
-    finally {
-      setDataLoading(false);
-    }
-  }
-  
-  async function submitApplicant(form: ApplicantForm) {
-      setSubmitLoading(true);
-      const applicantForm = evaluateApplication(form);
-      const applicantWithId = { ...applicantForm, id: uuidv4() };
-      try {
-      const updateEdgeConfig = await fetch(
-          'https://api.vercel.com/v1/edge-config/ecfg_julblvfonndqsb4moq9tzmaemhu5/items',
-          {
-          method: 'PATCH',
-          headers: {
-              Authorization: `Bearer ${'LrFP8T28AcKTlMtLHdogyUh4'}`,
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-              items: [
-              {
-                  operation: 'update',
-                  key: 'loanApplicants',
-                  value: [
-                  ...applicants,
-                  {...applicantWithId },
-                  ]
-              },
-              ],
-          }),
-          },
-      );
-      await updateEdgeConfig.json();
+  }, [setApplicants]);
+
+  const submitApplicant = useCallback(async (form: ApplicantForm) => {
+    setSubmitLoading(true);
+    const applicantForm = evaluateApplication(form);
+    const applicantWithId = { ...applicantForm, id: uuidv4() };
+
+    try {
+      const response = await fetch('/api/applicants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(applicantWithId),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit applicant');
+      }
+
       await fetchApplicants();
-  
       router.push(`/applicationResult/${applicantWithId.id}`);
     } catch (error) {
-      console.log(error);
+      console.error('Error submitting applicant:', error);
+      // TODO: Show error message to user
+    } finally {
+      setSubmitLoading(false);
     }
-    setSubmitLoading(false);
-  }
+  }, [setSubmitLoading, fetchApplicants, router]);
 
   return {
-    dataLoading,
     submitLoading,
     fetchApplicants,
     fetchApplicant,
