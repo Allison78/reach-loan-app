@@ -72,4 +72,49 @@ export function evaluateApplication(applicant: ApplicationInfo) {
       ...loanTerms(applicant.requestedLoanAmount || 0, SHORT_TERM_MONTHS, HIGH_INTEREST_RATE),
     };
   }
+
+  return {
+    ...applicant,
+    approved: false,
+  };
+}
+
+// Form Validation Functions
+export function validateName(name: string): string | undefined {
+  if (!name.trim()) return "Name is required";
+  if (name.trim().length < 2) return "Name must be at least 2 characters";
+  if (name.trim().length > 100) return "Name must be less than 100 characters";
+  return undefined;
+}
+
+export function validateEmail(email: string): string | undefined {
+  if (!email.trim()) return "Email is required";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return "Please enter a valid email address";
+  return undefined;
+}
+
+export function validatePhone(phone: string): string | undefined {
+  if (!phone.trim()) return "Phone number is required";
+  const digitsOnly = phone.replace(/\D/g, "");
+  if (digitsOnly.length !== 10) return "Phone number must be 10 digits";
+  return undefined;
+}
+
+export function validateSSN(ssn: string): string | undefined {
+  if (!ssn.trim()) return "SSN is required";
+  const digitsOnly = ssn.replace(/\D/g, "");
+  if (digitsOnly.length !== 9) return "SSN must be 9 digits";
+  return undefined;
+}
+
+export function validateAddress(address: string): string | undefined {
+  if (!address.trim()) return "Address is required";
+  if (address.trim().length < 5) return "Please enter a complete address";
+  return undefined;
+}
+
+export function validateLoanAmount(amount: number | undefined): string | undefined {
+  if (!amount || amount === 0) return "Loan amount is required";
+  return undefined;
 }

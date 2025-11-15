@@ -3,22 +3,19 @@
 import Link from "next/link";
 import { useMyContext } from '../contexts/ApplicantContext';
 import { ApplicationInfo } from "../types";
-import { useManageData } from "../hooks/useManageData";
-import { useEffect } from "react";
 
 export default function LoanApplicantsPage() {
   const { applicants } = useMyContext();
-  const {fetchApplicants} = useManageData();
 
-  useEffect(() => {
-    const getApplicants = async () => {
-      if (applicants === null) await fetchApplicants();
-    };
-    getApplicants();
-  }, [applicants])
-
-  if (!applicants) {
-    return <div>Loading...</div>;
+  if (applicants === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="bg-white shadow-lg rounded-2xl p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-xl font-medium text-gray-700">Loading applicants...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

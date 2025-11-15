@@ -18,32 +18,36 @@ let mockApplicants: ApplicationInfo[] = [];
 const mockSetApplicants = jest.fn((applicants) => {
   mockApplicants = applicants;
 });
+const mockSubmitLoading = false;
+const mockSetSubmitLoading = jest.fn();
 
 jest.mock("../app/contexts/ApplicantContext", () => ({
   useMyContext: () => ({
     applicants: mockApplicants,
     setApplicants: mockSetApplicants,
+    submitLoading: mockSubmitLoading,
+    setSubmitLoading: mockSetSubmitLoading,
   }),
 }));
 
-// Mock fetch for both GET (Edge Config read) and PATCH (Edge Config update)
+// Mock fetch for API routes
 global.fetch = jest.fn((url, options) => {
-  // Mock Edge Config read
-  if (url.includes('edge-config.vercel.com') && !options?.method) {
+  // Mock GET /api/applicants
+  if (url.includes('/api/applicants') && (!options?.method || options?.method === 'GET')) {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve([]),
+      json: () => Promise.resolve(mockApplicants),
     });
   }
-  
-  // Mock Edge Config update (PATCH)
-  if (url.includes('api.vercel.com/v1/edge-config') && options?.method === 'PATCH') {
+
+  // Mock POST /api/applicants
+  if (url.includes('/api/applicants') && options?.method === 'POST') {
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ status: 'ok' }),
+      json: () => Promise.resolve({ success: true }),
     });
   }
-  
+
   return Promise.resolve({
     ok: true,
     json: () => Promise.resolve({}),
@@ -90,12 +94,7 @@ describe("useManageData integration", () => {
 
   it("submits applicant and evaluates an approved 10%/36month loan correctly", async () => {
     const { result } = renderHook(() => useManageData());
-    
-    // Wait for the loading state to become false (initial fetch complete)
-    await waitFor(() => {
-      expect(result.current.dataLoading).toBe(false);
-    });
-    
+
     const expectedEvaluated = helpers.evaluateApplication(mockApplicantForm1036);
 
     expect(expectedEvaluated?.monthlyPayment).toEqual(484);
@@ -107,34 +106,25 @@ describe("useManageData integration", () => {
       await result.current.submitApplicant(mockApplicantForm1036);
     });
 
-    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, options]) => options && options.method === "PATCH",
+    const postCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, options]) => options && options.method === "POST",
     );
 
-    expect(patchCall).toBeDefined();
-    expect(patchCall![0]).toContain("api.vercel.com/v1/edge-config");
-    
-    const patchBody = JSON.parse(patchCall![1].body);
-    expect(patchBody.items[0].operation).toBe("update");
-    expect(patchBody.items[0].key).toBe("loanApplicants");
-    
-    const submittedApplicant = patchBody.items[0].value[0];
-    expect(submittedApplicant).toMatchObject({
+    expect(postCall).toBeDefined();
+    expect(postCall![0]).toContain("/api/applicants");
+
+    const postBody = JSON.parse(postCall![1].body);
+    expect(postBody).toMatchObject({
       ...expectedEvaluated,
       id: '12345-test-uuid',
     });
-    
+
     expect(mockPush).toHaveBeenCalledWith('/applicationResult/12345-test-uuid');
   });
 
   it("submits applicant and evaluates an approved 20%/24month loan correctly", async () => {
     const { result } = renderHook(() => useManageData());
-    
-    // Wait for the loading state to become false (initial fetch complete)
-    await waitFor(() => {
-      expect(result.current.dataLoading).toBe(false);
-    });
-    
+
     const expectedEvaluated = helpers.evaluateApplication(mockApplicantForm2024);
  
     expect(expectedEvaluated?.monthlyPayment).toEqual(1018);
@@ -146,31 +136,25 @@ describe("useManageData integration", () => {
       await result.current.submitApplicant(mockApplicantForm2024);
     });
 
-    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, options]) => options && options.method === "PATCH",
+    const postCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, options]) => options && options.method === "POST",
     );
 
-    expect(patchCall).toBeDefined();
-    expect(patchCall![0]).toContain("api.vercel.com/v1/edge-config");
-    
-    const patchBody = JSON.parse(patchCall![1].body);
-    const submittedApplicant = patchBody.items[0].value[0];
-    expect(submittedApplicant).toMatchObject({
+    expect(postCall).toBeDefined();
+    expect(postCall![0]).toContain("/api/applicants");
+
+    const postBody = JSON.parse(postCall![1].body);
+    expect(postBody).toMatchObject({
       ...expectedEvaluated,
       id: '12345-test-uuid',
     });
-    
+
     expect(mockPush).toHaveBeenCalledWith('/applicationResult/12345-test-uuid');
   });
 
   it("submits applicant and evaluates denied too many open loans application correctly", async () => {
     const { result } = renderHook(() => useManageData());
-    
-    // Wait for the loading state to become false (initial fetch complete)
-    await waitFor(() => {
-      expect(result.current.dataLoading).toBe(false);
-    });
-    
+
     const expectedEvaluated = helpers.evaluateApplication(mockApplicantForm60OpenLines);
  
     expect(expectedEvaluated?.monthlyPayment).toBeUndefined();
@@ -182,31 +166,25 @@ describe("useManageData integration", () => {
       await result.current.submitApplicant(mockApplicantForm60OpenLines);
     });
 
-    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, options]) => options && options.method === "PATCH",
+    const postCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, options]) => options && options.method === "POST",
     );
 
-    expect(patchCall).toBeDefined();
-    expect(patchCall![0]).toContain("api.vercel.com/v1/edge-config");
-    
-    const patchBody = JSON.parse(patchCall![1].body);
-    const submittedApplicant = patchBody.items[0].value[0];
-    expect(submittedApplicant).toMatchObject({
+    expect(postCall).toBeDefined();
+    expect(postCall![0]).toContain("/api/applicants");
+
+    const postBody = JSON.parse(postCall![1].body);
+    expect(postBody).toMatchObject({
       ...expectedEvaluated,
       id: '12345-test-uuid',
     });
-    
+
     expect(mockPush).toHaveBeenCalledWith('/applicationResult/12345-test-uuid');
   });
 
   it("submits applicant and evaluates denied too small amount application correctly", async () => {
     const { result } = renderHook(() => useManageData());
- 
-    // Wait for the loading state to become false (initial fetch complete)
-    await waitFor(() => {
-      expect(result.current.dataLoading).toBe(false);
-    });
- 
+
     const expectedEvaluated = helpers.evaluateApplication(mockApplicantFormTooSmallAmount);
  
     expect(expectedEvaluated?.monthlyPayment).toBeUndefined();
@@ -218,20 +196,19 @@ describe("useManageData integration", () => {
       await result.current.submitApplicant(mockApplicantFormTooSmallAmount);
     });
 
-    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, options]) => options && options.method === "PATCH",
+    const postCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, options]) => options && options.method === "POST",
     );
 
-    expect(patchCall).toBeDefined();
-    expect(patchCall![0]).toContain("api.vercel.com/v1/edge-config");
-    
-    const patchBody = JSON.parse(patchCall![1].body);
-    const submittedApplicant = patchBody.items[0].value[0];
-    expect(submittedApplicant).toMatchObject({
+    expect(postCall).toBeDefined();
+    expect(postCall![0]).toContain("/api/applicants");
+
+    const postBody = JSON.parse(postCall![1].body);
+    expect(postBody).toMatchObject({
       ...expectedEvaluated,
       id: '12345-test-uuid',
     });
-    
+
     expect(mockPush).toHaveBeenCalledWith('/applicationResult/12345-test-uuid');
   });
 });
